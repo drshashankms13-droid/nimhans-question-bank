@@ -21,6 +21,8 @@
   --sage-soft:#e3ead9;
   --rose:#9c4b3e;
   --shadow: 0 1px 2px rgba(19,42,47,.06), 0 4px 14px rgba(19,42,47,.06);
+  --landing-navy:#101d3f;
+  --landing-navy-deep:#060d24;
 }
 /* Paper 2 theme — Recent Advances in Psychiatry & Specialties (wine / copper) */
 body.paper-2{
@@ -268,11 +270,48 @@ footer.site{
 /* ===== Auth gate ===== */
 #authGate{
   position:fixed; inset:0; z-index:200;
-  background:var(--brand-deep);
-  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0);
-  background-size: 22px 22px;
-  display:flex; align-items:center; justify-content:center; padding:20px;
+  background:var(--landing-navy);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0),
+    linear-gradient(160deg, var(--landing-navy) 0%, var(--landing-navy-deep) 100%);
+  background-size: 22px 22px, 100% 100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;
+  gap:26px;
 }
+.landing-header{
+  text-align:center; max-width:460px; padding:0 12px;
+}
+.landing-header h1{
+  font-family:'Source Serif 4', Georgia, serif;
+  font-size:clamp(1.5rem, 4vw, 2.1rem);
+  font-weight:700;
+  color:#fff;
+  letter-spacing:.2px;
+  line-height:1.25;
+  margin-bottom:12px;
+}
+.landing-header .landing-sub{
+  font-family:'Inter',sans-serif;
+  font-size:.92rem;
+  color:#b9c6e0;
+  line-height:1.55;
+  margin-bottom:10px;
+}
+.landing-header .landing-fan{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.78rem;
+  letter-spacing:.04em;
+  color:#d9ae66;
+  font-weight:500;
+}
+.landing-footer{
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:.7rem;
+  color:#7c8bb0;
+  letter-spacing:.03em;
+}
+.landing-footer .divider-dot{ margin:0 8px; opacity:.6; }
 .auth-card{
   background:var(--paper-raised); border-radius:14px; padding:34px 30px; width:100%; max-width:400px;
   box-shadow:0 10px 40px rgba(0,0,0,.35); text-align:center;
@@ -294,6 +333,66 @@ footer.site{
 .auth-status.err{ color:var(--rose); }
 .auth-status.ok{ color:var(--sage); }
 .auth-foot{ margin-top:22px; font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--ink-soft); }
+
+.google-btn{
+  width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+  padding:10px 14px; border:1.5px solid var(--line); border-radius:8px; background:#fff;
+  color:#3c4043; font-family:'Inter',sans-serif; font-weight:600; font-size:.9rem; cursor:pointer; transition:.15s;
+}
+.google-btn:hover{ background:#f8f8f8; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+.auth-divider{ display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--ink-soft); font-size:.78rem; }
+.auth-divider::before, .auth-divider::after{ content:''; flex:1; height:1px; background:var(--line); }
+.auth-btn.secondary{ background:transparent; color:var(--brand-deep); border:1.5px solid var(--line); margin-top:8px; }
+.auth-btn.secondary:hover{ background:#f2ede0; }
+
+#pendingGate{
+  position:fixed; inset:0; z-index:200; background:var(--brand-deep);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+#pendingGate .auth-card p.sub strong{ color:var(--brand-deep); }
+
+/* ===== Admin panel ===== */
+#adminPanel{
+  position:fixed; inset:0; z-index:250; background:rgba(19,42,47,.55);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.admin-card{
+  background:var(--paper-raised); border-radius:14px; width:100%; max-width:640px; max-height:85vh;
+  display:flex; flex-direction:column; box-shadow:0 10px 40px rgba(0,0,0,.4);
+}
+.admin-head{
+  display:flex; align-items:center; justify-content:space-between; padding:18px 22px;
+  border-bottom:1px solid var(--line); background:linear-gradient(180deg,#eee6d0,#e7dcc0);
+  border-radius:14px 14px 0 0;
+}
+.admin-head h2{ font-size:1.15rem; color:var(--brand-deep); }
+.admin-head .signout{ color:var(--rose); border-color:var(--rose); }
+.admin-body{ padding:18px 22px; overflow-y:auto; }
+.admin-body h3{
+  font-family:'JetBrains Mono',monospace; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--accent); margin:18px 0 8px;
+}
+.admin-body h3:first-child{ margin-top:0; }
+.admin-list{ display:flex; flex-direction:column; gap:6px; }
+.admin-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:9px 12px; border:1px solid var(--line); border-radius:8px; font-size:.86rem;
+}
+.admin-row .aemail{ font-family:'JetBrains Mono',monospace; font-size:.8rem; word-break:break-all; }
+.admin-row .actions{ display:flex; gap:6px; flex-shrink:0; }
+.admin-row button{
+  font-family:'Inter',sans-serif; font-size:.76rem; font-weight:600; padding:5px 11px; border-radius:6px;
+  cursor:pointer; border:1px solid var(--line); background:#fff;
+}
+.admin-row button.approve{ color:var(--sage); border-color:#b9cdad; }
+.admin-row button.approve:hover{ background:var(--sage-soft); }
+.admin-row button.reject, .admin-row button.revoke{ color:var(--rose); border-color:#dcb3ab; }
+.admin-row button.reject:hover, .admin-row button.revoke:hover{ background:#fbe9e6; }
+.admin-row .badge-admin{
+  font-family:'JetBrains Mono',monospace; font-size:.66rem; color:var(--brand); background:var(--paper);
+  border:1px solid var(--line); padding:2px 8px; border-radius:20px;
+}
+.empty-admin{ color:var(--ink-soft); font-style:italic; font-size:.85rem; padding:8px 2px; }
 
 /* ===== User bar (shown once signed in) ===== */
 .user-bar{
@@ -325,15 +424,52 @@ footer.site{
 <body>
 
 <div id="authGate">
+  <div class="landing-header">
+    <h1>NIMHANS Previous Year Questions</h1>
+    <p class="landing-sub">Prepared by me, Dr. Shashank, and Resident, January 2025 Batch</p>
+    <p class="landing-fan">Forever Ronaldo Fan · CR7 ⚽</p>
+  </div>
+
   <div class="auth-card">
     <h2>NIMHANS Question Bank</h2>
-    <p class="sub">Sign in with your email to track your progress. We'll send you a one-click sign-in link — no password needed.</p>
+    <p class="sub">Sign in to track your progress.</p>
+    <button type="button" class="google-btn" onclick="handleGoogleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03l2.97-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97l2.97 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-divider"><span>or</span></div>
     <form id="authForm" onsubmit="return handleAuthSubmit(event)">
       <input type="email" id="authEmail" placeholder="you@example.com" required autocomplete="email">
-      <button type="submit" class="auth-btn" id="authBtn">Send sign-in link</button>
+      <button type="submit" class="auth-btn" id="authBtn">Send sign-in link by email</button>
     </form>
     <div class="auth-status" id="authStatus"></div>
     <div class="auth-foot">Prepared by Dr. Shashank · Progress is private to your account</div>
+  </div>
+
+  <div class="landing-footer">Prepared by Dr. Shashank M S<span class="divider-dot">·</span>v1.0 · 2026</div>
+</div>
+
+<div id="pendingGate" class="hidden">
+  <div class="auth-card">
+    <h2>Access pending</h2>
+    <p class="sub">You're signed in as <strong id="pendingEmail"></strong>, but your account hasn't been approved yet. Ask your admin to approve your email, then check again.</p>
+    <button type="button" class="auth-btn" onclick="checkAccess()">Check again</button>
+    <button type="button" class="auth-btn secondary" onclick="handleSignOut()">Sign out</button>
+  </div>
+</div>
+
+<div id="adminPanel" class="hidden">
+  <div class="admin-card">
+    <div class="admin-head">
+      <h2>Admin — Manage Access</h2>
+      <button class="signout" onclick="closeAdminPanel()">Close</button>
+    </div>
+    <div class="admin-body">
+      <h3>Pending requests</h3>
+      <div id="pendingList" class="admin-list"><div class="sync-note">Loading…</div></div>
+      <h3>Approved users</h3>
+      <div id="approvedList" class="admin-list"><div class="sync-note">Loading…</div></div>
+    </div>
   </div>
 </div>
 
@@ -346,6 +482,7 @@ footer.site{
     <div class="user-bar">
       <span>Signed in as</span>
       <span class="uemail" id="userEmail"></span>
+      <button class="signout hidden" id="adminBtn" onclick="openAdminPanel()">Admin</button>
       <button class="signout" onclick="handleSignOut()">Sign out</button>
     </div>
     <div class="paper-toggle" role="tablist" aria-label="Paper selection">

@@ -4,7 +4,7 @@
 
 /* ---------- Supabase setup ---------- */
 const SUPABASE_URL = 'https://mxqjvjdjnasavrbbxame.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14cWp2amRqbmFzYXZyYmJ4YW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NTk5OTksImV4cCI6MjA5OTIzNTk5OX0.IfEzIz3CQN4Qcd4oclgZxxLroH24p5fw_7k4nSTxu2M';
+const SUPABASE_ANON_KEY = 'sb_publishable_ssmaDfCXrAr_PYAOV9glew_4mAgZLH8';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser = null;
@@ -380,6 +380,20 @@ function renderAll(){
 }
 
 /* ---------- Auth: sign in / sign out / auth state ---------- */
+let isApproved = false;
+let isAdmin = false;
+
+async function handleGoogleSignIn(){
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if(error){
+    document.getElementById('authStatus').className = 'auth-status err';
+    document.getElementById('authStatus').textContent = error.message;
+  }
+}
+
 async function handleAuthSubmit(e){
   e.preventDefault();
   const email = document.getElementById('authEmail').value.trim();
@@ -413,17 +427,22 @@ function onSignedIn(user){
   currentUser = user;
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('userEmail').textContent = user.email;
-  // clean any auth tokens left in the URL after a magic-link redirect
   if(window.location.hash || window.location.search){
     history.replaceState(null, '', window.location.pathname);
   }
-  bootstrapApp();
+  checkAccess();
 }
 
 function onSignedOut(){
   currentUser = null;
+  isApproved = false;
+  isAdmin = false;
   checklist = {};
+  document.getElementById('pendingGate').classList.add('hidden');
+  document.getElementById('adminPanel').classList.add('hidden');
   document.getElementById('authGate').style.display = 'flex';
+  document.getElementById('authStatus').textContent = '';
+  document.getElementById('authStatus').className = 'auth-status';
   const emailInput = document.getElementById('authEmail');
   if(emailInput) emailInput.value = '';
 }
@@ -438,7 +457,103 @@ supabaseClient.auth.onAuthStateChange((event, session)=>{
   }
 });
 
-/* ---------- Bootstrap (runs once the user is signed in) ---------- */
+/* ---------- Access control: is this signed-in email approved? ---------- */
+async function checkAccess(){
+  const email = currentUser.email;
+  const { data, error } = await supabaseClient
+    .from('allowed_users')
+    .select('is_admin')
+    .eq('email', email)
+    .maybeSingle();
+
+  if(error){ console.error('Access check failed', error); }
+
+  if(data){
+    isApproved = true;
+    isAdmin = !!data.is_admin;
+    document.getElementById('pendingGate').classList.add('hidden');
+    document.getElementById('adminBtn').classList.toggle('hidden', !isAdmin);
+    bootstrapApp();
+  } else {
+    isApproved = false;
+    isAdmin = false;
+    document.getElementById('adminBtn').classList.add('hidden');
+    try{ await supabaseClient.from('pending_requests').upsert({ email }); }catch(e){ console.error(e); }
+    document.getElementById('pendingEmail').textContent = email;
+    document.getElementById('app').innerHTML = '';
+    document.getElementById('pendingGate').classList.remove('hidden');
+  }
+}
+
+/* ---------- Admin panel ---------- */
+function openAdminPanel(){
+  document.getElementById('adminPanel').classList.remove('hidden');
+  loadAdminPanel();
+}
+function closeAdminPanel(){
+  document.getElementById('adminPanel').classList.add('hidden');
+}
+
+async function loadAdminPanel(){
+  if(!currentUser) return;
+  const pendingEl = document.getElementById('pendingList');
+  const approvedEl = document.getElementById('approvedList');
+  pendingEl.innerHTML = '<div class="sync-note">Loading…</div>';
+  approvedEl.innerHTML = '<div class="sync-note">Loading…</div>';
+
+  const [{ data: pending, error: pErr }, { data: approved, error: aErr }] = await Promise.all([
+    supabaseClient.from('pending_requests').select('email, requested_at').order('requested_at', { ascending: false }),
+    supabaseClient.from('allowed_users').select('email, is_admin, added_at').order('added_at', { ascending: false })
+  ]);
+
+  if(!currentUser) return; // user signed out while this was in flight
+  if(pErr) console.error(pErr);
+  if(aErr) console.error(aErr);
+
+  pendingEl.innerHTML = (pending && pending.length)
+    ? pending.map(r => `
+        <div class="admin-row" data-email="${esc(r.email)}">
+          <span class="aemail">${esc(r.email)}</span>
+          <span class="actions">
+            <button class="approve" onclick="approveUser('${esc(r.email)}')">Approve</button>
+            <button class="reject" onclick="rejectUser('${esc(r.email)}')">Reject</button>
+          </span>
+        </div>`).join('')
+    : '<div class="empty-admin">No pending requests.</div>';
+
+  approvedEl.innerHTML = (approved && approved.length)
+    ? approved.map(r => `
+        <div class="admin-row" data-email="${esc(r.email)}">
+          <span class="aemail">${esc(r.email)} ${r.is_admin ? '<span class=\"badge-admin\">admin</span>' : ''}</span>
+          <span class="actions">
+            ${(currentUser && r.email === currentUser.email) ? '' : `<button class="revoke" onclick="revokeUser('${esc(r.email)}')">Revoke</button>`}
+          </span>
+        </div>`).join('')
+    : '<div class="empty-admin">No approved users yet.</div>';
+}
+
+async function approveUser(email){
+  try{
+    await supabaseClient.from('allowed_users').upsert({ email });
+    await supabaseClient.from('pending_requests').delete().eq('email', email);
+    await loadAdminPanel();
+  }catch(e){ console.error(e); alert('Could not approve — please try again.'); }
+}
+async function rejectUser(email){
+  try{
+    await supabaseClient.from('pending_requests').delete().eq('email', email);
+    await loadAdminPanel();
+  }catch(e){ console.error(e); alert('Could not reject — please try again.'); }
+}
+async function revokeUser(email){
+  if(!confirm(`Revoke access for ${email}?`)) return;
+  try{
+    await supabaseClient.from('allowed_users').delete().eq('email', email);
+    await loadAdminPanel();
+  }catch(e){ console.error(e); alert('Could not revoke — please try again.'); }
+}
+
+/* ---------- Bootstrap (runs once the user is signed in and approved) ---------- */
 async function bootstrapApp(){
   let startPaper = 'p1';
   try{
