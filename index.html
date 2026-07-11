@@ -38,6 +38,20 @@ body.paper-3{
   --accent:#e8973f;
   --accent-soft:#fbe3c4;
 }
+/* First Year — Paper A: Basic Neurosciences (blue) */
+body.fy-neuro{
+  --brand:#2f6fb0;
+  --brand-deep:#153a5c;
+  --accent:#5b9bd9;
+  --accent-soft:#dbeafe;
+}
+/* First Year — Paper B: Psychology, Sociology & Anthropology (green) */
+body.fy-psych{
+  --brand:#2f8f5b;
+  --brand-deep:#154a30;
+  --accent:#5cc98a;
+  --accent-soft:#dcfce7;
+}
 *{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 body{
@@ -84,6 +98,19 @@ header.site{
 .paper-toggle{
   display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;
 }
+.level-toggle{
+  display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;
+}
+.level-btn{
+  background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.25);
+  color:#e7d9b8; font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase;
+  padding:8px 18px; border-radius:9px; cursor:pointer; transition:.15s;
+}
+.level-btn:hover{ background:rgba(255,255,255,.1); }
+.level-btn.active{
+  background:var(--accent); color:var(--brand-deep); border-color:transparent;
+}
 .paper-btn{
   display:flex; align-items:center; gap:9px;
   background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.2);
@@ -101,6 +128,8 @@ header.site{
 .swatch-p1{ background:#1f5f5b; }
 .swatch-p2{ background:#6d2a4d; }
 .swatch-p3{ background:#b5541c; }
+.swatch-fya{ background:#3b82f6; }
+.swatch-fyb{ background:#22c55e; }
 .controls-row{
   display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
   margin-top:14px;
@@ -251,6 +280,25 @@ main{ max-width:1180px; margin:0 auto; padding:22px 24px 60px; }
 .topic-block > summary .tname{ font-family:'Source Serif 4',serif; font-weight:600; color:var(--brand-deep); font-size:1.02rem; flex:1; }
 .topic-block > summary .tcount{ font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--ink-soft); }
 .topic-body{ padding:6px 18px 14px; }
+
+/* ===== Domain super-sections (Paper 3: Neurology vs CL Psychiatry) ===== */
+.domain-block{
+  background:transparent; border:1.5px solid var(--brand); border-radius:12px; margin-bottom:20px; overflow:hidden;
+}
+.domain-block > summary{
+  list-style:none; cursor:pointer; padding:14px 18px; display:flex; align-items:center; gap:12px;
+  background:var(--brand-deep); color:#fff;
+}
+.domain-block > summary::-webkit-details-marker{ display:none; }
+.domain-block > summary .chev{ transition:.2s; color:var(--accent); font-size:.85rem; }
+.domain-block[open] > summary .chev{ transform:rotate(90deg); }
+.domain-block > summary .dname{
+  font-family:'JetBrains Mono',monospace; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  font-size:.82rem; color:var(--accent); flex:1;
+}
+.domain-block > summary .tcount{ font-family:'JetBrains Mono',monospace; font-size:.7rem; color:#cfe3df; }
+.domain-body{ padding:16px 16px 4px; }
+.domain-body .topic-block{ margin-left:2px; }
 
 .hidden{ display:none !important; }
 .empty-note{ padding:30px; text-align:center; color:var(--ink-soft); font-style:italic; font-family:'Source Serif 4',serif; }
@@ -486,7 +534,7 @@ footer.site{
 <header class="site">
   <div class="site-inner">
     <div class="masthead">
-      <h1>NIMHANS Final Exam <span id="paperSubtitle">: Core Psychiatry</span></h1>
+      <h1><span id="examLevelLabel">NIMHANS Final Exam</span> <span id="paperSubtitle">: Core Psychiatry</span></h1>
       <div class="tag">Question Bank Archive · 2019–2025 · Prepared by Dr. Shashank</div>
     </div>
     <div class="user-bar">
@@ -495,7 +543,11 @@ footer.site{
       <button class="signout hidden" id="adminBtn" onclick="openAdminPanel()">Admin</button>
       <button class="signout" onclick="handleSignOut()">Sign out</button>
     </div>
-    <div class="paper-toggle" role="tablist" aria-label="Paper selection">
+    <div class="level-toggle" role="tablist" aria-label="Exam level selection">
+      <button id="btn-levelFinal" class="level-btn active" onclick="setLevel('final')">Final Year</button>
+      <button id="btn-levelFirst" class="level-btn" onclick="setLevel('first')">First Year</button>
+    </div>
+    <div id="finalYearToggle" class="paper-toggle" role="tablist" aria-label="Paper selection">
       <button id="btn-paper1" class="paper-btn active" onclick="setPaper('p1')">
         <span class="swatch swatch-p1" aria-hidden="true"></span>
         <span>Paper 1 · Core Psychiatry</span>
@@ -507,6 +559,16 @@ footer.site{
       <button id="btn-paper3" class="paper-btn" onclick="setPaper('p3')">
         <span class="swatch swatch-p3" aria-hidden="true"></span>
         <span>Paper 3 · Neurology &amp; CL Psychiatry</span>
+      </button>
+    </div>
+    <div id="firstYearToggle" class="paper-toggle hidden" role="tablist" aria-label="First Year paper selection">
+      <button id="btn-paperA" class="paper-btn" onclick="setPaper('fy-neuro')">
+        <span class="swatch swatch-fya" aria-hidden="true"></span>
+        <span>Paper A · Basic Neurosciences</span>
+      </button>
+      <button id="btn-paperB" class="paper-btn" onclick="setPaper('fy-psych')">
+        <span class="swatch swatch-fyb" aria-hidden="true"></span>
+        <span>Paper B · Psychology, Sociology &amp; Anthropology</span>
       </button>
     </div>
     <div class="controls-row">
@@ -1343,6 +1405,7 @@ const PAPERS3 = [
 
 /* ==================== APP ==================== */
 </script>
+<script src="fy-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

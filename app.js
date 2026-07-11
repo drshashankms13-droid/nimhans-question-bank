@@ -33,8 +33,22 @@ const PAPER_CONFIG = {
       {key:'essay1', groupLabel:'Essay Question 1', sectionTitle:'Essay Question 1', allLabel:'All Essay Question 1 Answers', unitNoun:'questions'},
       {key:'essay2', groupLabel:'Essay Question 2', sectionTitle:'Essay Question 2', allLabel:'All Essay Question 2 Answers', unitNoun:'questions'}
     ]
+  },
+  'fy-neuro': {
+    label: 'Basic Neurosciences',
+    mode: 'topic-first',
+    data: () => NEURO_TOPICS,
+    bodyClass: 'fy-neuro'
+  },
+  'fy-psych': {
+    label: 'Psychology, Sociology & Anthropology',
+    mode: 'topic-first',
+    data: () => PSYCH_TOPICS,
+    bodyClass: 'fy-psych'
   }
 };
+
+let examLevel = 'final'; // 'final' | 'first'
 
 let currentPaper = 'p1';
 let currentView = 'year';
@@ -42,6 +56,44 @@ let allExpanded = false;
 let checklist = {};
 let PAPERS = PAPERS1;
 let ITEMS = [];
+
+/* ---------- Paper 3 domain split: Neurology vs Consultation-Liaison Psychiatry ---------- */
+const P3_DOMAINS = [
+  {
+    key: 'neuro',
+    label: 'Neurology',
+    topics: [
+      'Autoimmune & Infectious Neuropsychiatry',
+      'Dementia & Neurocognitive Disorders',
+      'Epilepsy & Seizure Disorders',
+      'Functional Neurological Disorders',
+      'Headache & Migraine',
+      'Movement Disorders',
+      'Neuroscience & Novel Treatments',
+      'Sleep Disorders',
+      'Stroke & Cerebrovascular Disease',
+      'Traumatic Brain Injury & Post-concussion'
+    ]
+  },
+  {
+    key: 'cl',
+    label: 'Consultation-Liaison Psychiatry',
+    topics: [
+      'Chronic Illness & Psychosomatic Medicine',
+      'COVID-19 Neuropsychiatric Aspects',
+      'Endocrine & Metabolic Neuropsychiatry',
+      'Forensic & Ethics in Neuropsychiatry',
+      'Geriatric Neuropsychiatry',
+      "Perinatal & Women's Mental Health",
+      'Psychopharmacology & Treatment-Induced Syndromes',
+      'Sexual Medicine & Gender Identity'
+    ]
+  }
+];
+function domainForTopic(topic){
+  for(const d of P3_DOMAINS){ if(d.topics.includes(topic)) return d; }
+  return null;
+}
 
 /* ---------- Cloud checklist sync ---------- */
 async function loadChecklistFromCloud(){
@@ -78,6 +130,9 @@ async function deleteProgress(uid){
 
 /* ---------- Build flat item list (for counts / search / topics) ---------- */
 function buildItems(){
+  if(PAPER_CONFIG[currentPaper].mode === 'topic-first'){
+    return buildFYItems();
+  }
   const items = [];
   const kinds = PAPER_CONFIG[currentPaper].primaryKinds;
   PAPERS.forEach(p=>{
@@ -109,6 +164,43 @@ function buildItems(){
   return items;
 }
 
+/* ---------- Build flat item list for First Year (topic-first) papers ---------- */
+function buildFYItems(){
+  const items = [];
+  const topics = PAPER_CONFIG[currentPaper].data();
+  topics.forEach((t, ti)=>{
+    if(t.subgroups){
+      let qi = 0;
+      t.subgroups.forEach((sg, sgi)=>{
+        sg.questions.forEach(q=>{
+          items.push({
+            uid: currentPaper + '-t' + ti + '-' + qi,
+            kind: 'fy',
+            topic: t.topic,
+            subgroup: sg.subgroup,
+            text: q.text,
+            year: q.year,
+            typeLabel: q.type
+          });
+          qi++;
+        });
+      });
+    } else {
+      t.questions.forEach((q, qi)=>{
+        items.push({
+          uid: currentPaper + '-t' + ti + '-' + qi,
+          kind: 'fy',
+          topic: t.topic,
+          text: q.text,
+          year: q.year,
+          typeLabel: q.type
+        });
+      });
+    }
+  });
+  return items;
+}
+
 /* ---------- Helpers ---------- */
 function esc(s){
   return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -118,7 +210,10 @@ function matchesSearch(item, q){
   q = q.toLowerCase();
   const hay = [
     item.text||'', item.stem||'', (item.subs||[]).join(' '),
-    item.topic, item.paper.date, item.paper.sitting, item.paper.version
+    item.topic||'', item.subgroup||'',
+    item.paper ? item.paper.date : (item.year||''),
+    item.paper ? item.paper.sitting : '',
+    item.paper ? item.paper.version : ''
   ].join(' ').toLowerCase();
   return hay.includes(q);
 }
@@ -147,6 +242,23 @@ function questionRowHtml(item, num){
         <span class="badge marks">${item.marks} marks</span>
         <span class="badge topic" onclick="jumpToTopic('${esc(item.topic)}')">${esc(item.topic)}</span>
         <span class="badge date">${esc(item.paper.date)} · ${esc(item.paper.version)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function fyQuestionRowHtml(item, num){
+  const done = checklist[item.uid] ? 'done' : '';
+  const numHtml = (num!=null) ? `<span class="qnum">${num}</span>` : '';
+  return `
+  <div class="qitem ${done}" data-uid="${item.uid}">
+    ${checkboxHtml(item.uid)}
+    <div class="qbody">
+      <div class="qtext">${numHtml}${esc(item.text)}</div>
+      <div class="qmeta">
+        <span class="badge marks">${esc(item.typeLabel||'')}</span>
+        <span class="badge topic" onclick="jumpToTopic('${esc(item.topic)}')">${esc(item.topic)}</span>
+        ${item.year ? `<span class="badge date">${esc(item.year)}</span>` : ''}
       </div>
     </div>
   </div>`;
@@ -200,6 +312,7 @@ function updateProgress(){
 
 /* ---------- View: Year-wise ---------- */
 function renderYearView(container, q){
+  if(PAPER_CONFIG[currentPaper].mode === 'topic-first'){ renderFYYearView(container, q); return; }
   const papers = [...PAPERS].sort((a,b)=> b.sortKey.localeCompare(a.sortKey));
   const kinds = PAPER_CONFIG[currentPaper].primaryKinds;
   let html = `<div class="section-heading"><div class="num">Y</div><h2>Papers, most recent first</h2><div class="section-rule"></div><div class="count">${papers.length} sittings</div></div>`;
@@ -252,6 +365,7 @@ function renderYearView(container, q){
 
 /* ---------- View: Topic-wise ---------- */
 function renderTopicView(container, q){
+  if(PAPER_CONFIG[currentPaper].mode === 'topic-first'){ renderFYTopicView(container, q); return; }
   let html = '';
   const kinds = PAPER_CONFIG[currentPaper].primaryKinds;
 
@@ -288,28 +402,148 @@ function renderTopicView(container, q){
   html += `<div class="section-heading"><div class="num">${kinds.length+1}</div><h2>Short Notes — by Topic</h2><div class="section-rule"></div><div class="count">${shortItems.length} questions across ${topics.length} topics</div></div>`;
 
   let anyTopicVisible = false;
-  topics.forEach(topic=>{
+
+  function renderTopicBlock(topic){
     const list = topicMap[topic].sort((a,b)=> b.paper.sortKey.localeCompare(a.paper.sortKey));
     const vis = list.filter(i=>matchesSearch(i,q));
-    if(vis.length===0 && q) return;
+    if(vis.length===0 && q) return '';
     anyTopicVisible = true;
     const doneCount = list.filter(i=>checklist[i.uid]).length;
     const openAttr = (allExpanded || q) ? 'open' : '';
     const slug = 'topic-' + topic.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
-    html += `<details class="topic-block" id="${slug}" ${openAttr}>
+    let block = `<details class="topic-block" id="${slug}" ${openAttr}>
       <summary>
         <span class="chev">▶</span>
         <span class="tname">${esc(topic)}</span>
         <span class="tcount">${doneCount}/${list.length} done</span>
       </summary>
       <div class="topic-body">`;
-    (q ? vis : list).forEach((i,idx)=> html += questionRowHtml(i, idx+1));
-    html += `</div></details>`;
-  });
+    (q ? vis : list).forEach((i,idx)=> block += questionRowHtml(i, idx+1));
+    block += `</div></details>`;
+    return block;
+  }
+
+  if(currentPaper === 'p3'){
+    P3_DOMAINS.forEach(domain=>{
+      const domainTopics = topics.filter(t=> domainForTopic(t) && domainForTopic(t).key === domain.key);
+      if(!domainTopics.length) return;
+      const domainItems = domainTopics.flatMap(t=>topicMap[t]);
+      const domainDone = domainItems.filter(i=>checklist[i.uid]).length;
+      const openAttr = (allExpanded || q) ? 'open' : '';
+      html += `<details class="domain-block" ${openAttr}>
+        <summary class="domain-head">
+          <span class="chev">▶</span>
+          <span class="dname">${esc(domain.label)}</span>
+          <span class="tcount">${domainDone}/${domainItems.length} done · ${domainTopics.length} topics</span>
+        </summary>
+        <div class="domain-body">`;
+      domainTopics.forEach(t=> html += renderTopicBlock(t));
+      html += `</div></details>`;
+    });
+    // Any topics not classified (safety net) render flat, unclustered
+    const unclassified = topics.filter(t=>!domainForTopic(t));
+    unclassified.forEach(t=> html += renderTopicBlock(t));
+  } else {
+    topics.forEach(topic=> html += renderTopicBlock(topic));
+  }
+
   if(!anyTopicVisible && q){
     html += `<div class="empty-note">No short notes match your search.</div>`;
   }
 
+  container.innerHTML = html;
+}
+
+/* ---------- View: First Year — Topic-wise ---------- */
+function renderFYTopicView(container, q){
+  const topics = PAPER_CONFIG[currentPaper].data();
+  let html = `<div class="section-heading"><div class="num">T</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — by Topic</h2><div class="section-rule"></div><div class="count">${topics.length} topics</div></div>`;
+  let anyVisible = false;
+
+  topics.forEach((t)=>{
+    const topicItems = ITEMS.filter(i=>i.topic===t.topic);
+    const vis = topicItems.filter(i=>matchesSearch(i,q));
+    if(vis.length===0 && q) return;
+    anyVisible = true;
+    const doneCount = topicItems.filter(i=>checklist[i.uid]).length;
+    const openAttr = (allExpanded || q) ? 'open' : '';
+    const slug = 'topic-' + t.topic.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+
+    html += `<details class="topic-block" id="${slug}" ${openAttr}>
+      <summary>
+        <span class="chev">▶</span>
+        <span class="tname">${esc(t.topic)}</span>
+        <span class="tcount">${doneCount}/${topicItems.length} done</span>
+      </summary>
+      <div class="topic-body">`;
+
+    if(t.subgroups){
+      let lastSub = null;
+      let idx = 0;
+      (q ? vis : topicItems).forEach(i=>{
+        if(i.subgroup && i.subgroup !== lastSub){
+          html += `<div class="qgroup-label">${esc(i.subgroup)}</div>`;
+          lastSub = i.subgroup;
+        }
+        idx++;
+        html += fyQuestionRowHtml(i, idx);
+      });
+    } else {
+      (q ? vis : topicItems).forEach((i,idx)=> html += fyQuestionRowHtml(i, idx+1));
+    }
+    html += `</div></details>`;
+  });
+
+  if(!anyVisible && q){
+    html += `<div class="empty-note">No questions match your search.</div>`;
+  }
+  container.innerHTML = html;
+}
+
+/* ---------- View: First Year — by Exam Sitting (derived from item.year) ---------- */
+const FY_MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function fyYearSortKey(yr){
+  const m = yr.match(/([A-Za-z]{3,})\s+(\d{4})/);
+  if(m && FY_MONTHS.hasOwnProperty(m[1].slice(0,3))){
+    return parseInt(m[2],10)*100 + FY_MONTHS[m[1].slice(0,3)];
+  }
+  const y = yr.match(/(\d{4})/);
+  return y ? parseInt(y[1],10)*100 : 0;
+}
+function renderFYYearView(container, q){
+  const groups = {};
+  ITEMS.forEach(i=>{
+    const key = i.year || 'Undated';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  });
+  const yearKeys = Object.keys(groups).sort((a,b)=> fyYearSortKey(b) - fyYearSortKey(a) || b.localeCompare(a));
+
+  let html = `<div class="section-heading"><div class="num">Y</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — by Exam Sitting</h2><div class="section-rule"></div><div class="count">${yearKeys.length} sittings</div></div>`;
+  let anyVisible = false;
+
+  yearKeys.forEach(yr=>{
+    const list = groups[yr];
+    const vis = list.filter(i=>matchesSearch(i,q));
+    if(vis.length===0 && q) return;
+    anyVisible = true;
+    const doneCount = list.filter(i=>checklist[i.uid]).length;
+    const openAttr = (allExpanded || q) ? 'open' : '';
+
+    html += `<details class="paper-card" ${openAttr}>
+      <summary class="paper-card-head">
+        <span class="chev">▶</span>
+        <div><div class="title">${esc(yr)}</div></div>
+        <div class="paper-progress">${doneCount} / ${list.length} done</div>
+      </summary>
+      <div class="paper-body">`;
+    (q ? vis : list).forEach((i,idx)=> html += fyQuestionRowHtml(i, idx+1));
+    html += `</div></details>`;
+  });
+
+  if(!anyVisible){
+    html += `<div class="empty-note">No questions match your search.</div>`;
+  }
   container.innerHTML = html;
 }
 
@@ -331,6 +565,32 @@ function jumpToTopic(topic){
   }, 60);
 }
 
+/* ---------- Exam level switching (Final Year / First Year) ---------- */
+function setLevel(level){
+  if(level === examLevel) return;
+  examLevel = level;
+  document.getElementById('btn-levelFinal').classList.toggle('active', level==='final');
+  document.getElementById('btn-levelFirst').classList.toggle('active', level==='first');
+  document.getElementById('finalYearToggle').classList.toggle('hidden', level!=='final');
+  document.getElementById('firstYearToggle').classList.toggle('hidden', level!=='first');
+  document.getElementById('examLevelLabel').textContent = level==='final' ? 'NIMHANS Final Exam' : 'NIMHANS First Year Exam';
+  try{ localStorage.setItem('nimhans_active_level', level); }catch(e){}
+
+  let nextPaper;
+  try{
+    if(level === 'final'){
+      const saved = localStorage.getItem('nimhans_active_paper_final');
+      nextPaper = (saved==='p1'||saved==='p2'||saved==='p3') ? saved : 'p1';
+    } else {
+      const saved = localStorage.getItem('nimhans_active_paper_first');
+      nextPaper = (saved==='fy-neuro'||saved==='fy-psych') ? saved : 'fy-neuro';
+    }
+  }catch(e){ nextPaper = level==='final' ? 'p1' : 'fy-neuro'; }
+
+  currentPaper = null; // force setPaper to re-render even if nextPaper matches a stale value
+  setPaper(nextPaper);
+}
+
 /* ---------- Paper switching ---------- */
 async function setPaper(paper){
   if(paper === currentPaper) return;
@@ -338,15 +598,23 @@ async function setPaper(paper){
   PAPERS = PAPER_CONFIG[paper].data();
   ITEMS = buildItems();
 
+  const isFinal = ['p1','p2','p3'].includes(paper);
   document.getElementById('btn-paper1').classList.toggle('active', paper==='p1');
   document.getElementById('btn-paper2').classList.toggle('active', paper==='p2');
   document.getElementById('btn-paper3').classList.toggle('active', paper==='p3');
+  document.getElementById('btn-paperA').classList.toggle('active', paper==='fy-neuro');
+  document.getElementById('btn-paperB').classList.toggle('active', paper==='fy-psych');
   document.body.classList.toggle('paper-2', paper==='p2');
   document.body.classList.toggle('paper-3', paper==='p3');
+  document.body.classList.toggle('fy-neuro', paper==='fy-neuro');
+  document.body.classList.toggle('fy-psych', paper==='fy-psych');
   document.getElementById('paperSubtitle').textContent = ': ' + PAPER_CONFIG[paper].label;
   document.getElementById('searchBox').value = '';
 
-  try{ localStorage.setItem('nimhans_active_paper', paper); }catch(e){}
+  try{
+    if(isFinal) localStorage.setItem('nimhans_active_paper_final', paper);
+    else localStorage.setItem('nimhans_active_paper_first', paper);
+  }catch(e){}
 
   document.getElementById('app').innerHTML = '<div class="sync-note">Loading your progress…</div>';
   checklist = await loadChecklistFromCloud();
@@ -555,11 +823,30 @@ async function revokeUser(email){
 
 /* ---------- Bootstrap (runs once the user is signed in and approved) ---------- */
 async function bootstrapApp(){
-  let startPaper = 'p1';
+  let startLevel = 'final';
   try{
-    const saved = localStorage.getItem('nimhans_active_paper');
-    if(saved === 'p1' || saved === 'p2' || saved === 'p3') startPaper = saved;
+    const savedLevel = localStorage.getItem('nimhans_active_level');
+    if(savedLevel === 'final' || savedLevel === 'first') startLevel = savedLevel;
   }catch(e){}
+
+  let startPaper;
+  try{
+    if(startLevel === 'final'){
+      const saved = localStorage.getItem('nimhans_active_paper_final');
+      startPaper = (saved==='p1'||saved==='p2'||saved==='p3') ? saved : 'p1';
+    } else {
+      const saved = localStorage.getItem('nimhans_active_paper_first');
+      startPaper = (saved==='fy-neuro'||saved==='fy-psych') ? saved : 'fy-neuro';
+    }
+  }catch(e){ startPaper = startLevel==='final' ? 'p1' : 'fy-neuro'; }
+
+  examLevel = startLevel;
+  document.getElementById('btn-levelFinal').classList.toggle('active', startLevel==='final');
+  document.getElementById('btn-levelFirst').classList.toggle('active', startLevel==='first');
+  document.getElementById('finalYearToggle').classList.toggle('hidden', startLevel!=='final');
+  document.getElementById('firstYearToggle').classList.toggle('hidden', startLevel!=='first');
+  document.getElementById('examLevelLabel').textContent = startLevel==='final' ? 'NIMHANS Final Exam' : 'NIMHANS First Year Exam';
+
   currentPaper = startPaper;
   PAPERS = PAPER_CONFIG[startPaper].data();
   ITEMS = buildItems();
@@ -567,8 +854,12 @@ async function bootstrapApp(){
   document.getElementById('btn-paper1').classList.toggle('active', startPaper==='p1');
   document.getElementById('btn-paper2').classList.toggle('active', startPaper==='p2');
   document.getElementById('btn-paper3').classList.toggle('active', startPaper==='p3');
+  document.getElementById('btn-paperA').classList.toggle('active', startPaper==='fy-neuro');
+  document.getElementById('btn-paperB').classList.toggle('active', startPaper==='fy-psych');
   document.body.classList.toggle('paper-2', startPaper==='p2');
   document.body.classList.toggle('paper-3', startPaper==='p3');
+  document.body.classList.toggle('fy-neuro', startPaper==='fy-neuro');
+  document.body.classList.toggle('fy-psych', startPaper==='fy-psych');
   document.getElementById('paperSubtitle').textContent = ': ' + PAPER_CONFIG[startPaper].label;
 
   document.getElementById('app').innerHTML = '<div class="sync-note">Loading your progress…</div>';
