@@ -38,17 +38,22 @@ const PAPER_CONFIG = {
     label: 'Basic Neurosciences',
     mode: 'topic-first',
     data: () => NEURO_TOPICS,
+    yearData: () => YEAR_DATA.neuro,
     bodyClass: 'fy-neuro'
   },
   'fy-psych': {
     label: 'Psychology, Sociology & Anthropology',
     mode: 'topic-first',
     data: () => PSYCH_TOPICS,
+    yearData: () => YEAR_DATA.psych,
     bodyClass: 'fy-psych'
   }
 };
 
 let examLevel = 'final'; // 'final' | 'first'
+let FY_TEXT_INDEX = {}; // currentPaper -> Map(normalizedText -> item)
+function fyNorm(s){ return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function fySection(){ return currentPaper === 'fy-neuro' ? 'neuro' : 'psych'; }
 
 let currentPaper = 'p1';
 let currentView = 'year';
@@ -168,12 +173,14 @@ function buildItems(){
 function buildFYItems(){
   const items = [];
   const topics = PAPER_CONFIG[currentPaper].data();
+  const textIndex = new Map();
+
   topics.forEach((t, ti)=>{
     if(t.subgroups){
       let qi = 0;
-      t.subgroups.forEach((sg, sgi)=>{
+      t.subgroups.forEach((sg)=>{
         sg.questions.forEach(q=>{
-          items.push({
+          const item = {
             uid: currentPaper + '-t' + ti + '-' + qi,
             kind: 'fy',
             topic: t.topic,
@@ -181,23 +188,52 @@ function buildFYItems(){
             text: q.text,
             year: q.year,
             typeLabel: q.type
-          });
+          };
+          items.push(item);
+          textIndex.set(fyNorm(item.text), item);
           qi++;
         });
       });
     } else {
       t.questions.forEach((q, qi)=>{
-        items.push({
+        const item = {
           uid: currentPaper + '-t' + ti + '-' + qi,
           kind: 'fy',
           topic: t.topic,
           text: q.text,
           year: q.year,
           typeLabel: q.type
-        });
+        };
+        items.push(item);
+        textIndex.set(fyNorm(item.text), item);
       });
     }
   });
+
+  // Cross-link (and fall back to including) any questions that only appear
+  // in the by-sitting dataset, so the two views always share one checklist.
+  const yearGroups = PAPER_CONFIG[currentPaper].yearData ? PAPER_CONFIG[currentPaper].yearData() : null;
+  if(yearGroups){
+    yearGroups.forEach((g, gi)=>{
+      g.questions.forEach((q, qi)=>{
+        const key = fyNorm(q.text);
+        if(!textIndex.has(key)){
+          const item = {
+            uid: currentPaper + '-y' + gi + '-' + qi,
+            kind: 'fy',
+            topic: null,
+            text: q.text,
+            year: g.year,
+            typeLabel: q.type
+          };
+          items.push(item);
+          textIndex.set(key, item);
+        }
+      });
+    });
+  }
+
+  FY_TEXT_INDEX[currentPaper] = textIndex;
   return items;
 }
 
@@ -257,7 +293,7 @@ function fyQuestionRowHtml(item, num){
       <div class="qtext">${numHtml}${esc(item.text)}</div>
       <div class="qmeta">
         <span class="badge marks">${esc(item.typeLabel||'')}</span>
-        <span class="badge topic" onclick="jumpToTopic('${esc(item.topic)}')">${esc(item.topic)}</span>
+        ${item.topic ? `<span class="badge topic" onclick="jumpToTopic('${esc(item.topic)}')">${esc(item.topic)}</span>` : ''}
         ${item.year ? `<span class="badge date">${esc(item.year)}</span>` : ''}
       </div>
     </div>
@@ -477,6 +513,14 @@ function renderFYTopicView(container, q){
       </summary>
       <div class="topic-body">`;
 
+    const notesHtml = TOPIC_NOTES[fySection()] ? TOPIC_NOTES[fySection()][t.topic] : null;
+    if(notesHtml){
+      html += `<details class="notes-panel">
+        <summary class="notes-toggle"><span class="notes-icon">📖</span> Study Notes</summary>
+        <div class="notes-content">${notesHtml}</div>
+      </details>`;
+    }
+
     if(t.subgroups){
       let lastSub = null;
       let idx = 0;
@@ -500,30 +544,16 @@ function renderFYTopicView(container, q){
   container.innerHTML = html;
 }
 
-/* ---------- View: First Year — by Exam Sitting (derived from item.year) ---------- */
-const FY_MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-function fyYearSortKey(yr){
-  const m = yr.match(/([A-Za-z]{3,})\s+(\d{4})/);
-  if(m && FY_MONTHS.hasOwnProperty(m[1].slice(0,3))){
-    return parseInt(m[2],10)*100 + FY_MONTHS[m[1].slice(0,3)];
-  }
-  const y = yr.match(/(\d{4})/);
-  return y ? parseInt(y[1],10)*100 : 0;
-}
+/* ---------- View: First Year — by Exam Sitting (from the real YEAR_DATA set) ---------- */
 function renderFYYearView(container, q){
-  const groups = {};
-  ITEMS.forEach(i=>{
-    const key = i.year || 'Undated';
-    if(!groups[key]) groups[key] = [];
-    groups[key].push(i);
-  });
-  const yearKeys = Object.keys(groups).sort((a,b)=> fyYearSortKey(b) - fyYearSortKey(a) || b.localeCompare(a));
+  const yearGroups = PAPER_CONFIG[currentPaper].yearData();
+  const textIndex = FY_TEXT_INDEX[currentPaper];
 
-  let html = `<div class="section-heading"><div class="num">Y</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — by Exam Sitting</h2><div class="section-rule"></div><div class="count">${yearKeys.length} sittings</div></div>`;
+  let html = `<div class="section-heading"><div class="num">Y</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — by Exam Sitting</h2><div class="section-rule"></div><div class="count">${yearGroups.length} sittings</div></div>`;
   let anyVisible = false;
 
-  yearKeys.forEach(yr=>{
-    const list = groups[yr];
+  yearGroups.forEach((g)=>{
+    const list = g.questions.map(qq => textIndex.get(fyNorm(qq.text))).filter(Boolean);
     const vis = list.filter(i=>matchesSearch(i,q));
     if(vis.length===0 && q) return;
     anyVisible = true;
@@ -533,7 +563,7 @@ function renderFYYearView(container, q){
     html += `<details class="paper-card" ${openAttr}>
       <summary class="paper-card-head">
         <span class="chev">▶</span>
-        <div><div class="title">${esc(yr)}</div></div>
+        <div><div class="title">${esc(g.year)}</div><div class="meta">${esc(g.paper)}</div></div>
         <div class="paper-progress">${doneCount} / ${list.length} done</div>
       </summary>
       <div class="paper-body">`;

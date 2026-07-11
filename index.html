@@ -281,6 +281,44 @@ main{ max-width:1180px; margin:0 auto; padding:22px 24px 60px; }
 .topic-block > summary .tcount{ font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--ink-soft); }
 .topic-body{ padding:6px 18px 14px; }
 
+/* ===== First Year — Study Notes panel ===== */
+.notes-panel{
+  margin:0 0 14px; border:1.5px dashed var(--accent); border-radius:10px; overflow:hidden;
+  background:var(--accent-soft);
+}
+.notes-panel > summary{
+  list-style:none; cursor:pointer; padding:10px 16px; display:flex; align-items:center; gap:8px;
+  font-family:'JetBrains Mono',monospace; font-weight:700; font-size:.78rem; letter-spacing:.04em;
+  text-transform:uppercase; color:var(--brand-deep);
+}
+.notes-panel > summary::-webkit-details-marker{ display:none; }
+.notes-panel > summary::before{ content:'▶'; font-size:.7rem; color:var(--accent); transition:.2s; }
+.notes-panel[open] > summary::before{ transform:rotate(90deg); }
+.notes-icon{ font-size:.95rem; }
+.notes-content{
+  padding:4px 22px 22px; font-family:'Inter',sans-serif; font-size:.92rem; line-height:1.65; color:var(--ink);
+  max-width:none;
+}
+.notes-content .note-chunk{ margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+.notes-content .note-chunk:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.notes-content .note-chunk-title{
+  font-family:'Source Serif 4',serif; font-size:1.05rem; font-weight:700; color:var(--brand-deep);
+  margin:0 0 10px;
+}
+.notes-content h3{ font-family:'Source Serif 4',serif; font-size:.98rem; font-weight:700; color:var(--brand-deep); margin:18px 0 6px; }
+.notes-content h4{ font-size:.9rem; font-weight:700; margin:14px 0 6px; color:var(--brand); }
+.notes-content p{ margin:0 0 10px; }
+.notes-content ul, .notes-content ol{ margin:0 0 10px; padding-left:22px; }
+.notes-content li{ margin-bottom:4px; }
+.notes-content strong{ color:var(--ink); font-weight:700; }
+.notes-content em{ color:var(--ink-soft); }
+.notes-content table{ border-collapse:collapse; width:100%; margin:10px 0; font-size:.86rem; }
+.notes-content th, .notes-content td{ border:1px solid var(--line); padding:6px 10px; text-align:left; }
+.notes-content th{ background:var(--paper-raised); font-family:'JetBrains Mono',monospace; font-size:.72rem; text-transform:uppercase; }
+.notes-content code{ background:var(--paper-raised); padding:1px 5px; border-radius:4px; font-size:.85em; }
+.notes-content blockquote{ border-left:3px solid var(--accent); padding-left:12px; color:var(--ink-soft); margin:10px 0; }
+.notes-content hr{ border:none; border-top:1px solid var(--line); margin:14px 0; }
+
 /* ===== Domain super-sections (Paper 3: Neurology vs CL Psychiatry) ===== */
 .domain-block{
   background:transparent; border:1.5px solid var(--brand); border-radius:12px; margin-bottom:20px; overflow:hidden;
@@ -1406,6 +1444,7 @@ const PAPERS3 = [
 /* ==================== APP ==================== */
 </script>
 <script src="fy-data.js"></script>
+<script src="notes-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
