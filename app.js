@@ -577,6 +577,57 @@ function renderFYYearView(container, q){
   container.innerHTML = html;
 }
 
+/* ---------- View: First Year — Q&A Mode ---------- */
+function fyQARowHtml(item, num){
+  const ans = (ANSWER_DATA[currentPaper] && ANSWER_DATA[currentPaper][item.uid]) ? ANSWER_DATA[currentPaper][item.uid] : null;
+  return `
+  <div class="qa-item">
+    <div class="qa-question">
+      <span class="qnum">${num}</span>
+      <span class="qa-qtext">${esc(item.text)}</span>
+      <span class="badge marks">${esc(item.typeLabel||'')}</span>
+      ${item.year ? `<span class="badge date">${esc(item.year)}</span>` : ''}
+    </div>
+    <div class="qa-answer">
+      ${ans ? ans : '<span class="qa-pending">Answer not added yet — check back soon.</span>'}
+    </div>
+  </div>`;
+}
+
+function renderFYQAView(container, q){
+  const topics = PAPER_CONFIG[currentPaper].data();
+  const answerSet = ANSWER_DATA[currentPaper] || {};
+  const answeredTotal = ITEMS.filter(i=>answerSet[i.uid]).length;
+
+  let html = `<div class="section-heading"><div class="num">QA</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — Question &amp; Answer Mode</h2><div class="section-rule"></div><div class="count">${answeredTotal} of ${ITEMS.length} questions answered so far</div></div>`;
+  let anyVisible = false;
+
+  topics.forEach((t)=>{
+    const topicItems = ITEMS.filter(i=>i.topic===t.topic);
+    const vis = topicItems.filter(i=>matchesSearch(i,q));
+    if(vis.length===0 && q) return;
+    anyVisible = true;
+    const answeredInTopic = topicItems.filter(i=>answerSet[i.uid]).length;
+    const openAttr = (allExpanded || q) ? 'open' : '';
+    const slug = 'qa-topic-' + t.topic.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
+
+    html += `<details class="topic-block" id="${slug}" ${openAttr}>
+      <summary>
+        <span class="chev">▶</span>
+        <span class="tname">${esc(t.topic)}</span>
+        <span class="tcount">${answeredInTopic}/${topicItems.length} answered</span>
+      </summary>
+      <div class="topic-body">`;
+    (q ? vis : topicItems).forEach((i,idx)=> html += fyQARowHtml(i, idx+1));
+    html += `</div></details>`;
+  });
+
+  if(!anyVisible && q){
+    html += `<div class="empty-note">No questions match your search.</div>`;
+  }
+  container.innerHTML = html;
+}
+
 /* ---------- Jump to a topic (from a badge click while in year view) ---------- */
 function jumpToTopic(topic){
   if(currentView !== 'topic'){
@@ -604,6 +655,13 @@ function setLevel(level){
   document.getElementById('finalYearToggle').classList.toggle('hidden', level!=='final');
   document.getElementById('firstYearToggle').classList.toggle('hidden', level!=='first');
   document.getElementById('examLevelLabel').textContent = level==='final' ? 'NIMHANS Final Exam' : 'NIMHANS First Year Exam';
+  document.getElementById('btn-qa').classList.toggle('hidden', level!=='first');
+  if(level==='final' && currentView==='qa'){
+    currentView = 'year';
+    document.getElementById('btn-year').classList.add('active');
+    document.getElementById('btn-topic').classList.remove('active');
+    document.getElementById('btn-qa').classList.remove('active');
+  }
   try{ localStorage.setItem('nimhans_active_level', level); }catch(e){}
 
   let nextPaper;
@@ -656,6 +714,7 @@ function setView(view){
   currentView = view;
   document.getElementById('btn-year').classList.toggle('active', view==='year');
   document.getElementById('btn-topic').classList.toggle('active', view==='topic');
+  document.getElementById('btn-qa').classList.toggle('active', view==='qa');
   renderAll();
 }
 
@@ -671,6 +730,8 @@ function renderAll(){
   const q = document.getElementById('searchBox').value.trim();
   if(currentView === 'year'){
     renderYearView(container, q);
+  } else if(currentView === 'qa'){
+    renderFYQAView(container, q);
   } else {
     renderTopicView(container, q);
   }
@@ -876,6 +937,7 @@ async function bootstrapApp(){
   document.getElementById('finalYearToggle').classList.toggle('hidden', startLevel!=='final');
   document.getElementById('firstYearToggle').classList.toggle('hidden', startLevel!=='first');
   document.getElementById('examLevelLabel').textContent = startLevel==='final' ? 'NIMHANS Final Exam' : 'NIMHANS First Year Exam';
+  document.getElementById('btn-qa').classList.toggle('hidden', startLevel!=='first');
 
   currentPaper = startPaper;
   PAPERS = PAPER_CONFIG[startPaper].data();
