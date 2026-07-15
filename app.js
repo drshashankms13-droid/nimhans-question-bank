@@ -681,6 +681,7 @@ function setLevel(level){
 
 /* ---------- Paper switching ---------- */
 async function setPaper(paper){
+  closeSidebar();
   if(paper === currentPaper) return;
   currentPaper = paper;
   PAPERS = PAPER_CONFIG[paper].data();
@@ -716,6 +717,7 @@ function setView(view){
   document.getElementById('btn-topic').classList.toggle('active', view==='topic');
   document.getElementById('btn-qa').classList.toggle('active', view==='qa');
   renderAll();
+  closeSidebar();
 }
 
 function toggleExpandAll(){
@@ -959,23 +961,15 @@ async function bootstrapApp(){
   renderAll();
 }
 
-/* ---------- Compact sticky header on scroll ---------- */
-(function initCompactHeader(){
-  let ticking = false;
-  function threshold(){
-    return window.innerWidth <= 640 ? 20 : 48;
-  }
-  function applyState(){
-    const header = document.querySelector('header.site');
-    if(header){
-      header.classList.toggle('compact', window.scrollY > threshold());
-    }
-    ticking = false;
-  }
-  window.addEventListener('scroll', function(){
-    if(!ticking){
-      window.requestAnimationFrame(applyState);
-      ticking = true;
-    }
-  }, { passive: true });
-})();
+/* ---------- Sidebar (mobile off-canvas drawer) ---------- */
+function toggleSidebar(){
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const isOpen = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', !isOpen);
+  backdrop.classList.toggle('show', !isOpen);
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+}
