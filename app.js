@@ -958,3 +958,24 @@ async function bootstrapApp(){
   checklist = await loadChecklistFromCloud();
   renderAll();
 }
+
+/* ---------- Compact sticky header on scroll ---------- */
+(function initCompactHeader(){
+  let ticking = false;
+  function threshold(){
+    return window.innerWidth <= 640 ? 20 : 48;
+  }
+  function applyState(){
+    const header = document.querySelector('header.site');
+    if(header){
+      header.classList.toggle('compact', window.scrollY > threshold());
+    }
+    ticking = false;
+  }
+  window.addEventListener('scroll', function(){
+    if(!ticking){
+      window.requestAnimationFrame(applyState);
+      ticking = true;
+    }
+  }, { passive: true });
+})();

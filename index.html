@@ -77,7 +77,29 @@ header.site{
 }
 .site-inner{
   max-width:1180px; margin:0 auto; padding:18px 24px 16px;
+  transition:padding .18s ease;
 }
+
+/* ===== Compact header (auto-applied once the page is scrolled) ===== */
+header.site.compact .masthead,
+header.site.compact .user-bar{
+  display:none;
+}
+header.site.compact .site-inner{
+  padding:8px 24px 6px;
+}
+header.site.compact .level-toggle{ margin-top:0; }
+header.site.compact .paper-toggle{ margin-top:6px; }
+header.site.compact .controls-row{ margin-top:6px; }
+header.site.compact .level-btn{ padding:5px 12px; font-size:.7rem; }
+header.site.compact .paper-btn{ padding:5px 12px; font-size:.76rem; gap:7px; }
+header.site.compact .paper-btn .swatch{ width:8px; height:8px; }
+header.site.compact .view-toggle button{ padding:5px 12px; font-size:.78rem; }
+header.site.compact .progress-label{ font-size:.68rem; }
+header.site.compact .toolbar{ padding:6px 24px 0; }
+header.site.compact .searchbox{ padding:6px 10px; font-size:.82rem; }
+header.site.compact .resetbtn{ padding:6px 12px; font-size:.72rem; }
+
 .masthead{
   display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px 20px;
 }
@@ -533,6 +555,20 @@ footer.site{
   main{ padding:16px 16px 50px; }
   .controls-row{ flex-direction:column; align-items:stretch; }
   .progress-wrap{ width:100%; }
+  .masthead{ gap:4px; }
+  .masthead h1{ font-size:1.15rem; }
+  .paper-toggle, .level-toggle{ margin-top:10px; gap:6px; }
+  .paper-btn{ padding:7px 12px; font-size:.8rem; }
+  .level-btn{ padding:6px 14px; font-size:.72rem; }
+
+  /* compact mode kicks in sooner and shrinks further on small screens */
+  header.site.compact .site-inner{ padding:6px 16px 5px; }
+  header.site.compact .paper-toggle{ margin-top:5px; gap:5px; }
+  header.site.compact .level-toggle{ gap:5px; }
+  header.site.compact .paper-btn{ padding:4px 10px; font-size:.7rem; }
+  header.site.compact .paper-btn span:last-child{ max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  header.site.compact .level-btn{ padding:4px 10px; font-size:.65rem; }
+  header.site.compact .toolbar{ padding:5px 16px 0; }
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
