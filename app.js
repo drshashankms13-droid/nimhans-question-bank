@@ -372,9 +372,8 @@ function renderYearView(container, q){
     html += `<details class="paper-card" data-paper="${p.id}" ${openAttr}>
       <summary class="paper-card-head">
         <span class="chev">▶</span>
-        <div>
-          <div class="title">${esc(p.sitting)} — ${esc(p.version)}</div>
-          <div class="meta">Exam date: ${esc(p.date)}</div>
+        <div class="card-title-block">
+          <div class="title">${esc(p.date)} — ${esc(p.version)}</div>
         </div>
         <div class="paper-progress">${doneCount} / ${paperItems.length} done</div>
       </summary>
@@ -563,7 +562,7 @@ function renderFYYearView(container, q){
     html += `<details class="paper-card" ${openAttr}>
       <summary class="paper-card-head">
         <span class="chev">▶</span>
-        <div><div class="title">${esc(g.year)}</div><div class="meta">${esc(g.paper)}</div></div>
+        <div class="card-title-block"><div class="title">${esc(g.year)}</div><div class="meta">${esc(g.paper)}</div></div>
         <div class="paper-progress">${doneCount} / ${list.length} done</div>
       </summary>
       <div class="paper-body">`;
@@ -594,20 +593,62 @@ function fyQARowHtml(item, num){
   </div>`;
 }
 
+/* Group items with the exact same question text (e.g. asked in several
+   different sittings) into a single entry, so Q&A Mode doesn't repeat the
+   identical question+answer block once per sitting. Questions with even
+   slightly different wording are left as separate entries. */
+function groupQAItems(items){
+  const order = [];
+  const byText = new Map();
+  items.forEach(i=>{
+    const key = fyNorm(i.text);
+    if(!byText.has(key)){
+      const group = { text:i.text, typeLabel:i.typeLabel, topic:i.topic, uids:[], years:[] };
+      byText.set(key, group);
+      order.push(group);
+    }
+    const group = byText.get(key);
+    group.uids.push(i.uid);
+    if(i.year) group.years.push(i.year);
+  });
+  return order;
+}
+
+function fyQAGroupRowHtml(group, num){
+  const answerSet = ANSWER_DATA[currentPaper] || {};
+  const answeredUid = group.uids.find(u=>answerSet[u]);
+  const ans = answeredUid ? answerSet[answeredUid] : null;
+  const yearBadges = group.years.map(y=>`<span class="badge date">${esc(y)}</span>`).join('');
+  return `
+  <div class="qa-item">
+    <div class="qa-question">
+      <span class="qnum">${num}</span>
+      <span class="qa-qtext">${esc(group.text)}</span>
+      <span class="badge marks">${esc(group.typeLabel||'')}</span>
+      ${yearBadges}
+    </div>
+    <div class="qa-answer">
+      ${ans ? ans : '<span class="qa-pending">Answer not added yet — check back soon.</span>'}
+    </div>
+  </div>`;
+}
+
 function renderFYQAView(container, q){
   const topics = PAPER_CONFIG[currentPaper].data();
   const answerSet = ANSWER_DATA[currentPaper] || {};
-  const answeredTotal = ITEMS.filter(i=>answerSet[i.uid]).length;
+  const allGroups = groupQAItems(ITEMS);
+  const answeredTotal = allGroups.filter(g=>g.uids.some(u=>answerSet[u])).length;
 
-  let html = `<div class="section-heading"><div class="num">QA</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — Question &amp; Answer Mode</h2><div class="section-rule"></div><div class="count">${answeredTotal} of ${ITEMS.length} questions answered so far</div></div>`;
+  let html = `<div class="section-heading"><div class="num">QA</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — Question &amp; Answer Mode</h2><div class="section-rule"></div><div class="count">${answeredTotal} of ${allGroups.length} questions answered so far</div></div>`;
   let anyVisible = false;
 
   topics.forEach((t)=>{
     const topicItems = ITEMS.filter(i=>i.topic===t.topic);
-    const vis = topicItems.filter(i=>matchesSearch(i,q));
-    if(vis.length===0 && q) return;
+    const topicGroups = groupQAItems(topicItems);
+    const visGroups = topicGroups.filter(g=>matchesSearch({text:g.text, topic:g.topic, year:g.years.join(' ')}, q));
+    if(visGroups.length===0 && q) return;
     anyVisible = true;
-    const answeredInTopic = topicItems.filter(i=>answerSet[i.uid]).length;
+    const answeredInTopic = topicGroups.filter(g=>g.uids.some(u=>answerSet[u])).length;
     const openAttr = (allExpanded || q) ? 'open' : '';
     const slug = 'qa-topic-' + t.topic.replace(/[^a-z0-9]+/gi,'-').toLowerCase();
 
@@ -615,10 +656,10 @@ function renderFYQAView(container, q){
       <summary>
         <span class="chev">▶</span>
         <span class="tname">${esc(t.topic)}</span>
-        <span class="tcount">${answeredInTopic}/${topicItems.length} answered</span>
+        <span class="tcount">${answeredInTopic}/${topicGroups.length} answered</span>
       </summary>
       <div class="topic-body">`;
-    (q ? vis : topicItems).forEach((i,idx)=> html += fyQARowHtml(i, idx+1));
+    (q ? visGroups : topicGroups).forEach((g,idx)=> html += fyQAGroupRowHtml(g, idx+1));
     html += `</div></details>`;
   });
 
@@ -708,6 +749,7 @@ async function setPaper(paper){
   document.getElementById('app').innerHTML = '<div class="sync-note">Loading your progress…</div>';
   checklist = await loadChecklistFromCloud();
   renderAll();
+  syncHeaderHeight();
 }
 
 /* ---------- View switching ---------- */
@@ -720,9 +762,16 @@ function setView(view){
   closeSidebar();
 }
 
-function toggleExpandAll(){
-  allExpanded = !allExpanded;
-  document.getElementById('expandBtn').textContent = allExpanded ? 'Collapse all' : 'Expand all';
+function expandAll(){
+  allExpanded = true;
+  document.getElementById('expandBtn').classList.add('active');
+  document.getElementById('collapseBtn').classList.remove('active');
+  renderAll();
+}
+function collapseAll(){
+  allExpanded = false;
+  document.getElementById('collapseBtn').classList.add('active');
+  document.getElementById('expandBtn').classList.remove('active');
   renderAll();
 }
 
@@ -959,9 +1008,19 @@ async function bootstrapApp(){
   document.getElementById('app').innerHTML = '<div class="sync-note">Loading your progress…</div>';
   checklist = await loadChecklistFromCloud();
   renderAll();
+  syncHeaderHeight();
 }
 
 /* ---------- Sidebar (mobile off-canvas drawer) ---------- */
+function syncHeaderHeight(){
+  const header = document.querySelector('.topbar');
+  if(header){
+    document.documentElement.style.setProperty('--header-h', header.offsetHeight + 'px');
+  }
+}
+window.addEventListener('resize', syncHeaderHeight);
+window.addEventListener('load', syncHeaderHeight);
+
 function toggleSidebar(){
   const sidebar = document.getElementById('sidebar');
   const backdrop = document.getElementById('sidebarBackdrop');
