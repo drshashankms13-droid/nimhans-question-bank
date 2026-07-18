@@ -594,9 +594,9 @@ footer.site{
 
 <div id="authGate">
   <div class="landing-header">
-    <p class="landing-kicker">Psychiatric Companion</p>
+    <p class="landing-kicker">Psychiatry Companion</p>
     <h1>NIMHANS Previous Year Questions</h1>
-    <p class="landing-sub">Prepared by Dr. Shashank MS, Resident, Batch of January 2025</p>
+    <p class="landing-sub">Prepared By Dr Shashank M S</p>
     <p class="landing-fan">Forever Fan Ronaldo · CR7 ⚽</p>
   </div>
 
@@ -648,7 +648,7 @@ footer.site{
       <span></span><span></span><span></span>
     </button>
     <div class="topbar-brand">
-      <div class="topbar-brandname">Psychiatric Companion</div>
+      <div class="topbar-brandname">Psychiatry Companion</div>
       <div class="topbar-tagline">Prepared by Dr. Shashank M S</div>
     </div>
     <div class="topbar-context">
@@ -669,6 +669,14 @@ footer.site{
 <div class="layout">
   <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
   <aside class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <input type="text" class="searchbox" id="searchBox" placeholder="Search questions, topics, or dates…" oninput="renderAll()">
+      <div class="sidebar-btnrow">
+        <button class="resetbtn" id="expandBtn" onclick="expandAll()">Expand all</button>
+        <button class="resetbtn" id="collapseBtn" onclick="collapseAll()">Collapse all</button>
+      </div>
+    </div>
+
     <div class="sidebar-section">
       <div class="sidebar-label">Exam Level</div>
       <div class="level-toggle" role="tablist" aria-label="Exam level selection">
@@ -711,14 +719,6 @@ footer.site{
         <button id="btn-year" class="active" onclick="setView('year')">Year-wise</button>
         <button id="btn-topic" onclick="setView('topic')">Topic-wise</button>
         <button id="btn-qa" class="hidden" onclick="setView('qa')">Q&amp;A Mode</button>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <input type="text" class="searchbox" id="searchBox" placeholder="Search questions, topics, or dates…" oninput="renderAll()">
-      <div class="sidebar-btnrow">
-        <button class="resetbtn" id="expandBtn" onclick="expandAll()">Expand all</button>
-        <button class="resetbtn" id="collapseBtn" onclick="collapseAll()">Collapse all</button>
       </div>
     </div>
 

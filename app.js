@@ -2,10 +2,54 @@
    NIMHANS Question Bank — app logic (multi-paper, cloud-synced)
    ============================================================ */
 
+/* ---------- Resilience: never fail silently ---------- */
+function showFatalBanner(message){
+  let banner = document.getElementById('fatalBanner');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = 'fatalBanner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#7a2c22;color:#fff;padding:12px 18px;font-family:sans-serif;font-size:.85rem;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.3);';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = message + ' <button onclick="location.reload()" style="margin-left:10px;background:#fff;color:#7a2c22;border:none;padding:4px 12px;border-radius:5px;cursor:pointer;font-weight:700;">Refresh</button>';
+}
+window.addEventListener('error', function(e){
+  console.error('Unhandled error:', e.error || e.message);
+  showFatalBanner('Something went wrong loading part of the app.');
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('Unhandled promise rejection:', e.reason);
+  showFatalBanner('Something went wrong syncing with the server.');
+});
+
 /* ---------- Supabase setup ---------- */
 const SUPABASE_URL = 'https://mxqjvjdjnasavrbbxame.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14cWp2amRqbmFzYXZyYmJ4YW1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NTk5OTksImV4cCI6MjA5OTIzNTk5OX0.IfEzIz3CQN4Qcd4oclgZxxLroH24p5fw_7k4nSTxu2M';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabaseClient = null;
+try{
+  if(!window.supabase) throw new Error('Supabase library did not load (check your internet connection or ad-blocker).');
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){
+  console.error('Supabase init failed:', e);
+  showFatalBanner('Could not connect to the sign-in service. Please check your connection and refresh.');
+}
+
+/* ---------- Guard against missing data files (fy-data.js / notes-data.js / answers-data.js) ---------- */
+function dataFilesOk(){
+  const missing = [];
+  if(typeof PAPERS1 === 'undefined' || typeof PAPERS2 === 'undefined' || typeof PAPERS3 === 'undefined') missing.push('Final Year question data');
+  if(typeof NEURO_TOPICS === 'undefined' || typeof PSYCH_TOPICS === 'undefined' || typeof YEAR_DATA === 'undefined') missing.push('First Year question data');
+  if(missing.length){
+    console.error('Missing data files:', missing);
+    showFatalBanner('Some content failed to load (' + missing.join(', ') + '). Please refresh — if this keeps happening, the site files may be incomplete.');
+    return false;
+  }
+  return true;
+}
+// TOPIC_NOTES and ANSWER_DATA are optional (Study Notes / Q&A Mode enhancements) —
+// the app should keep working without them, just without those extras.
+if(typeof TOPIC_NOTES === 'undefined'){ window.TOPIC_NOTES = { neuro:{}, psych:{} }; }
+if(typeof ANSWER_DATA === 'undefined'){ window.ANSWER_DATA = { 'fy-neuro':{}, 'fy-psych':{} }; }
 
 let currentUser = null;
 
@@ -103,17 +147,22 @@ function domainForTopic(topic){
 /* ---------- Cloud checklist sync ---------- */
 async function loadChecklistFromCloud(){
   if(!currentUser) return {};
-  const { data, error } = await supabaseClient
-    .from('checklist_progress')
-    .select('uid')
-    .eq('paper', currentPaper);
-  if(error){
-    console.error('Failed to load progress', error);
+  try{
+    const { data, error } = await supabaseClient
+      .from('checklist_progress')
+      .select('uid')
+      .eq('paper', currentPaper);
+    if(error){
+      console.error('Failed to load progress', error);
+      return {};
+    }
+    const obj = {};
+    (data||[]).forEach(row => { obj[row.uid] = true; });
+    return obj;
+  }catch(e){
+    console.error('Failed to load progress (network):', e);
     return {};
   }
-  const obj = {};
-  (data||[]).forEach(row => { obj[row.uid] = true; });
-  return obj;
 }
 
 async function upsertProgress(uid){
@@ -373,7 +422,7 @@ function renderYearView(container, q){
       <summary class="paper-card-head">
         <span class="chev">▶</span>
         <div class="card-title-block">
-          <div class="title">${esc(p.date)} — ${esc(p.version)}</div>
+          <div class="title">${esc(p.sitting)} : ${esc(p.version)}</div>
         </div>
         <div class="paper-progress">${doneCount} / ${paperItems.length} done</div>
       </summary>
@@ -544,6 +593,14 @@ function renderFYTopicView(container, q){
 }
 
 /* ---------- View: First Year — by Exam Sitting (from the real YEAR_DATA set) ---------- */
+const FY_MONTH_FULL = {Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
+function formatFYSitting(yearStr){
+  const m = (yearStr||'').match(/^([A-Za-z]{3})\w*\s+(\d{4})(?:\s*\(S(\d)\))?/);
+  if(!m) return yearStr||'';
+  const monthFull = FY_MONTH_FULL[m[1]] || m[1];
+  return m[3] ? `${monthFull} ${m[2]} : Set ${m[3]}` : `${monthFull} ${m[2]}`;
+}
+
 function renderFYYearView(container, q){
   const yearGroups = PAPER_CONFIG[currentPaper].yearData();
   const textIndex = FY_TEXT_INDEX[currentPaper];
@@ -562,7 +619,7 @@ function renderFYYearView(container, q){
     html += `<details class="paper-card" ${openAttr}>
       <summary class="paper-card-head">
         <span class="chev">▶</span>
-        <div class="card-title-block"><div class="title">${esc(g.year)}</div><div class="meta">${esc(g.paper)}</div></div>
+        <div class="card-title-block"><div class="title">${esc(formatFYSitting(g.year))}</div></div>
         <div class="paper-progress">${doneCount} / ${list.length} done</div>
       </summary>
       <div class="paper-body">`;
@@ -639,7 +696,7 @@ function renderFYQAView(container, q){
   const allGroups = groupQAItems(ITEMS);
   const answeredTotal = allGroups.filter(g=>g.uids.some(u=>answerSet[u])).length;
 
-  let html = `<div class="section-heading"><div class="num">QA</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — Question &amp; Answer Mode</h2><div class="section-rule"></div><div class="count">${answeredTotal} of ${allGroups.length} questions answered so far</div></div>`;
+  let html = `<div class="section-heading"><div class="num">QA</div><h2>${esc(PAPER_CONFIG[currentPaper].label)} — Question &amp; Answer Mode</h2><div class="section-rule"></div></div>`;
   let anyVisible = false;
 
   topics.forEach((t)=>{
@@ -656,7 +713,6 @@ function renderFYQAView(container, q){
       <summary>
         <span class="chev">▶</span>
         <span class="tname">${esc(t.topic)}</span>
-        <span class="tcount">${answeredInTopic}/${topicGroups.length} answered</span>
       </summary>
       <div class="topic-body">`;
     (q ? visGroups : topicGroups).forEach((g,idx)=> html += fyQAGroupRowHtml(g, idx+1));
@@ -722,6 +778,17 @@ function setLevel(level){
 
 /* ---------- Paper switching ---------- */
 async function setPaper(paper){
+  try{
+    await setPaperInner(paper);
+  }catch(e){
+    console.error('setPaper failed:', e);
+    document.getElementById('app').innerHTML =
+      '<div class="sync-note">Something went wrong switching papers. '
+      + `<button class="resetbtn" onclick="setPaper('${paper}')" style="margin-left:8px;">Retry</button></div>`;
+  }
+}
+
+async function setPaperInner(paper){
   closeSidebar();
   if(paper === currentPaper) return;
   currentPaper = paper;
@@ -869,14 +936,29 @@ supabaseClient.auth.onAuthStateChange((event, session)=>{
 
 /* ---------- Access control: is this signed-in email approved? ---------- */
 async function checkAccess(){
+  if(!currentUser || !currentUser.email){
+    showFatalBanner('Signed-in session looks invalid. Please sign in again.');
+    return;
+  }
   const email = currentUser.email;
-  const { data, error } = await supabaseClient
-    .from('allowed_users')
-    .select('is_admin')
-    .eq('email', email)
-    .maybeSingle();
+  let data, error;
+  try{
+    ({ data, error } = await supabaseClient
+      .from('allowed_users')
+      .select('is_admin')
+      .eq('email', email)
+      .maybeSingle());
+  }catch(e){
+    error = e;
+  }
 
-  if(error){ console.error('Access check failed', error); }
+  if(error){
+    console.error('Access check failed', error);
+    document.getElementById('app').innerHTML =
+      '<div class="sync-note">Couldn\'t reach the server to check your access. '
+      + '<button class="resetbtn" onclick="checkAccess()" style="margin-left:8px;">Retry</button></div>';
+    return;
+  }
 
   if(data){
     isApproved = true;
@@ -965,6 +1047,18 @@ async function revokeUser(email){
 
 /* ---------- Bootstrap (runs once the user is signed in and approved) ---------- */
 async function bootstrapApp(){
+  if(!dataFilesOk()) return;
+  try{
+    await bootstrapAppInner();
+  }catch(e){
+    console.error('bootstrapApp failed:', e);
+    document.getElementById('app').innerHTML =
+      '<div class="sync-note">Something went wrong loading the app. '
+      + '<button class="resetbtn" onclick="bootstrapApp()" style="margin-left:8px;">Retry</button></div>';
+  }
+}
+
+async function bootstrapAppInner(){
   let startLevel = 'final';
   try{
     const savedLevel = localStorage.getItem('nimhans_active_level');
